@@ -32,9 +32,6 @@
 #define GOOGLE_PROTOBUF_UTIL_CONVERTER_DEFAULT_VALUE_OBJECTWRITER_H__
 
 #include <memory>
-#ifndef _SHARED_PTR_H
-#include <google/protobuf/stubs/shared_ptr.h>
-#endif
 #include <stack>
 #include <vector>
 
@@ -77,7 +74,7 @@ class LIBPROTOBUF_EXPORT DefaultValueObjectWriter : public ObjectWriter {
       FieldScrubCallBack;
 
   // A unique pointer to a DefaultValueObjectWriter::FieldScrubCallBack.
-  typedef google::protobuf::scoped_ptr<FieldScrubCallBack> FieldScrubCallBackPtr;
+  typedef std::unique_ptr<FieldScrubCallBack> FieldScrubCallBackPtr;
 
   DefaultValueObjectWriter(TypeResolver* type_resolver,
                            const google::protobuf::Type& type,
@@ -86,35 +83,39 @@ class LIBPROTOBUF_EXPORT DefaultValueObjectWriter : public ObjectWriter {
   virtual ~DefaultValueObjectWriter();
 
   // ObjectWriter methods.
-  virtual DefaultValueObjectWriter* StartObject(StringPiece name);
+  DefaultValueObjectWriter* StartObject(StringPiece name) override;
 
-  virtual DefaultValueObjectWriter* EndObject();
+  DefaultValueObjectWriter* EndObject() override;
 
-  virtual DefaultValueObjectWriter* StartList(StringPiece name);
+  DefaultValueObjectWriter* StartList(StringPiece name) override;
 
-  virtual DefaultValueObjectWriter* EndList();
+  DefaultValueObjectWriter* EndList() override;
 
-  virtual DefaultValueObjectWriter* RenderBool(StringPiece name, bool value);
+  DefaultValueObjectWriter* RenderBool(StringPiece name,
+                                       bool value) override;
 
-  virtual DefaultValueObjectWriter* RenderInt32(StringPiece name, int32 value);
+  DefaultValueObjectWriter* RenderInt32(StringPiece name,
+                                        int32 value) override;
 
-  virtual DefaultValueObjectWriter* RenderUint32(StringPiece name,
-                                                 uint32 value);
+  DefaultValueObjectWriter* RenderUint32(StringPiece name,
+                                         uint32 value) override;
 
-  virtual DefaultValueObjectWriter* RenderInt64(StringPiece name, int64 value);
+  DefaultValueObjectWriter* RenderInt64(StringPiece name,
+                                        int64 value) override;
 
-  virtual DefaultValueObjectWriter* RenderUint64(StringPiece name,
-                                                 uint64 value);
+  DefaultValueObjectWriter* RenderUint64(StringPiece name,
+                                         uint64 value) override;
 
-  virtual DefaultValueObjectWriter* RenderDouble(StringPiece name,
-                                                 double value);
+  DefaultValueObjectWriter* RenderDouble(StringPiece name,
+                                         double value) override;
 
-  virtual DefaultValueObjectWriter* RenderFloat(StringPiece name, float value);
+  DefaultValueObjectWriter* RenderFloat(StringPiece name,
+                                        float value) override;
 
-  virtual DefaultValueObjectWriter* RenderString(StringPiece name,
-                                                 StringPiece value);
-  virtual DefaultValueObjectWriter* RenderBytes(StringPiece name,
-                                                StringPiece value);
+  DefaultValueObjectWriter* RenderString(StringPiece name,
+                                         StringPiece value) override;
+  DefaultValueObjectWriter* RenderBytes(StringPiece name,
+                                        StringPiece value) override;
 
   virtual DefaultValueObjectWriter* RenderNull(StringPiece name);
 
@@ -131,6 +132,10 @@ class LIBPROTOBUF_EXPORT DefaultValueObjectWriter : public ObjectWriter {
     preserve_proto_field_names_ = value;
   }
 
+  // If set to true, enums are rendered as ints from output when default values
+  // are written.
+  void set_print_enums_as_ints(bool value) { use_ints_for_enums_ = value; }
+
  protected:
   enum NodeKind {
     PRIMITIVE = 0,
@@ -146,11 +151,7 @@ class LIBPROTOBUF_EXPORT DefaultValueObjectWriter : public ObjectWriter {
     Node(const string& name, const google::protobuf::Type* type, NodeKind kind,
          const DataPiece& data, bool is_placeholder,
          const std::vector<string>& path, bool suppress_empty_list,
-         FieldScrubCallBack* field_scrub_callback);
-    Node(const string& name, const google::protobuf::Type* type, NodeKind kind,
-         const DataPiece& data, bool is_placeholder,
-         const std::vector<string>& path, bool suppress_empty_list,
-         bool preserve_proto_field_names,
+         bool preserve_proto_field_names, bool use_ints_for_enums,
          FieldScrubCallBack* field_scrub_callback);
     virtual ~Node() {
       for (int i = 0; i < children_.size(); ++i) {
@@ -233,6 +234,9 @@ class LIBPROTOBUF_EXPORT DefaultValueObjectWriter : public ObjectWriter {
     // Whether to preserve original proto field names
     bool preserve_proto_field_names_;
 
+    // Whether to always print enums as ints
+    bool use_ints_for_enums_;
+
     // Pointer to function for determining whether a field needs to be scrubbed
     // or not. This callback is owned by the creator of this node.
     FieldScrubCallBack* field_scrub_callback_;
@@ -247,20 +251,20 @@ class LIBPROTOBUF_EXPORT DefaultValueObjectWriter : public ObjectWriter {
                               const DataPiece& data, bool is_placeholder,
                               const std::vector<string>& path,
                               bool suppress_empty_list,
-                              FieldScrubCallBack* field_scrub_callback);
-
-  // Creates a new Node and returns it. Caller owns memory of returned object.
-  virtual Node* CreateNewNode(const string& name,
-                              const google::protobuf::Type* type, NodeKind kind,
-                              const DataPiece& data, bool is_placeholder,
-                              const std::vector<string>& path,
-                              bool suppress_empty_list,
                               bool preserve_proto_field_names,
+                              bool use_ints_for_enums,
                               FieldScrubCallBack* field_scrub_callback);
 
   // Creates a DataPiece containing the default value of the type of the field.
   static DataPiece CreateDefaultDataPieceForField(
-      const google::protobuf::Field& field, const TypeInfo* typeinfo);
+      const google::protobuf::Field& field, const TypeInfo* typeinfo) {
+    return CreateDefaultDataPieceForField(field, typeinfo, false);
+  }
+
+  // Same as the above but with a flag to use ints instead of enum names.
+  static DataPiece CreateDefaultDataPieceForField(
+      const google::protobuf::Field& field, const TypeInfo* typeinfo,
+      bool use_ints_for_enums);
 
  protected:
   // Returns a pointer to current Node in tree.
@@ -272,7 +276,7 @@ class LIBPROTOBUF_EXPORT DefaultValueObjectWriter : public ObjectWriter {
   void MaybePopulateChildrenOfAny(Node* node);
 
   // Writes the root_ node to ow_ and resets the root_ and current_ pointer to
-  // NULL.
+  // nullptr.
   void WriteRoot();
 
   // Adds or replaces the data_ of a primitive child node.
@@ -282,7 +286,8 @@ class LIBPROTOBUF_EXPORT DefaultValueObjectWriter : public ObjectWriter {
   // there is no default. For proto3, where we cannot specify an explicit
   // default, a zero value will always be returned.
   static DataPiece FindEnumDefault(const google::protobuf::Field& field,
-                                   const TypeInfo* typeinfo);
+                                   const TypeInfo* typeinfo,
+                                   bool use_ints_for_enums);
 
   // Type information for all the types used in the descriptor. Used to find
   // google::protobuf::Type of nested messages/enums.
@@ -297,7 +302,7 @@ class LIBPROTOBUF_EXPORT DefaultValueObjectWriter : public ObjectWriter {
   // The current Node. Owned by its parents.
   Node* current_;
   // The root Node.
-  google::protobuf::scoped_ptr<Node> root_;
+  std::unique_ptr<Node> root_;
   // The stack to hold the path of Nodes from current_ to root_;
   std::stack<Node*> stack_;
 
@@ -306,6 +311,9 @@ class LIBPROTOBUF_EXPORT DefaultValueObjectWriter : public ObjectWriter {
 
   // Whether to preserve original proto field names
   bool preserve_proto_field_names_;
+
+  // Whether to always print enums as ints
+  bool use_ints_for_enums_;
 
   // Unique Pointer to function for determining whether a field needs to be
   // scrubbed or not.
@@ -319,6 +327,6 @@ class LIBPROTOBUF_EXPORT DefaultValueObjectWriter : public ObjectWriter {
 }  // namespace converter
 }  // namespace util
 }  // namespace protobuf
-
 }  // namespace google
+
 #endif  // GOOGLE_PROTOBUF_UTIL_CONVERTER_DEFAULT_VALUE_OBJECTWRITER_H__

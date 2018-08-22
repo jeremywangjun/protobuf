@@ -31,18 +31,31 @@
 #ifndef GOOGLE_PROTOBUF_IMPLICIT_WEAK_MESSAGE_H__
 #define GOOGLE_PROTOBUF_IMPLICIT_WEAK_MESSAGE_H__
 
+#include <string>
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/arena.h>
 #include <google/protobuf/message_lite.h>
+
+#ifdef SWIG
+#error "You cannot SWIG proto headers"
+#endif
+
+// This file is logically internal-only and should only be used by protobuf
+// generated code.
 
 namespace google {
 namespace protobuf {
 namespace internal {
 
+// An implementation of MessageLite that treats all data as unknown. This type
+// acts as a placeholder for an implicit weak field in the case where the true
+// message type does not get linked into the binary.
 class LIBPROTOBUF_EXPORT ImplicitWeakMessage : public MessageLite {
  public:
   ImplicitWeakMessage() : arena_(NULL) {}
   explicit ImplicitWeakMessage(Arena* arena) : arena_(arena) {}
+
+  static const ImplicitWeakMessage* default_instance();
 
   string GetTypeName() const { return ""; }
 
@@ -63,13 +76,20 @@ class LIBPROTOBUF_EXPORT ImplicitWeakMessage : public MessageLite {
 
   bool MergePartialFromCodedStream(io::CodedInputStream* input);
 
+#if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  ParseFunc _ParseFunc() const { return _InternalParse; }
+
+  static const char* _InternalParse(const char* begin, const char* end,
+                                    void* object, ParseContext* ctx);
+#endif
+
   size_t ByteSizeLong() const { return data_.size(); }
 
   void SerializeWithCachedSizes(io::CodedOutputStream* output) const {
     output->WriteString(data_);
   }
 
-  int GetCachedSize() const { return data_.size(); }
+  int GetCachedSize() const { return static_cast<int>(data_.size()); }
 
   typedef void InternalArenaConstructable_;
 
@@ -79,11 +99,46 @@ class LIBPROTOBUF_EXPORT ImplicitWeakMessage : public MessageLite {
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(ImplicitWeakMessage);
 };
 
-extern ::google::protobuf::internal::ExplicitlyConstructed<ImplicitWeakMessage>
-    implicit_weak_message_default_instance;
+// A type handler for use with implicit weak repeated message fields.
+template <typename ImplicitWeakType>
+class ImplicitWeakTypeHandler {
+ public:
+  typedef ImplicitWeakType Type;
+  typedef MessageLite WeakType;
+  static const bool Moveable = false;
+
+  // With implicit weak fields, we need separate NewFromPrototype and
+  // NewFromPrototypeWeak functions. The former is used when we want to create a
+  // strong dependency on the message type, and it just delegates to the
+  // GenericTypeHandler. The latter avoids creating a strong dependency, by
+  // simply calling MessageLite::New.
+  static inline MessageLite* NewFromPrototype(const MessageLite* prototype,
+                                              Arena* arena = NULL) {
+    return prototype->New(arena);
+  }
+
+  static inline void Delete(MessageLite* value, Arena* arena) {
+    if (arena == NULL) {
+      delete value;
+    }
+  }
+  static inline Arena* GetArena(MessageLite* value) {
+    return value->GetArena();
+  }
+  static inline void* GetMaybeArenaPointer(MessageLite* value) {
+    return value->GetArena();
+  }
+  static inline void Clear(MessageLite* value) { value->Clear(); }
+  static void Merge(const MessageLite& from, MessageLite* to) {
+    to->CheckTypeAndMergeFrom(from);
+  }
+  static inline size_t SpaceUsedLong(const Type& value) {
+    return value.SpaceUsedLong();
+  }
+};
 
 }  // namespace internal
 }  // namespace protobuf
-
 }  // namespace google
+
 #endif  // GOOGLE_PROTOBUF_IMPLICIT_WEAK_MESSAGE_H__

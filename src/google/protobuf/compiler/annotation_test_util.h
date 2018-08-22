@@ -59,30 +59,25 @@ struct ExpectedOutput {
 // directory.
 void AddFile(const string& filename, const string& data);
 
-// Tries to capture a FileDescriptorProto, GeneratedCodeInfo, and output
-// code from the previously added file with name `filename`.
+// Runs proto compiler. Captures proto file structrue in FileDescriptorProto.
+// Files will be generated in TestTempDir() folder. Callers of this
+// function must read generated files themselves.
 //
 // filename: source .proto file used to generate code.
 // plugin_specific_args: command line arguments specific to current generator.
 //     For Java, this value might be "--java_out=annotate_code:test_temp_dir"
-// meta_file_suffix: suffix of meta files that contain annotations. For Java
-//     it is ".pb.meta" because for file Foo.java meta file is Foo.java.pb.meta
 // cli: instance of command line interface to run generator. See Java's
 //     annotation_unittest.cc for an example of how to initialize it.
 // file: output parameter, will be set to the descriptor of the proto file
 //     specified in filename.
-// outputs: output parameter. If not NULL, each ExpectedOutput in the vector
-//     should have its file_path set; CaptureMetadata will fill the rest of
-//     the fields appropriately.
-bool CaptureMetadata(const string& filename, const string& plugin_specific_args,
-                     const string& meta_file_suffix, CommandLineInterface* cli,
-                     FileDescriptorProto* file,
-                     std::vector<ExpectedOutput>* outputs);
+bool RunProtoCompiler(const string& filename,
+                      const string& plugin_specific_args,
+                      CommandLineInterface* cli, FileDescriptorProto* file);
 
 bool DecodeMetadata(const string& path, GeneratedCodeInfo* info);
 
 // Finds all of the Annotations for a given source file and path.
-// See Location.path in http://google/protobuf/descriptor.proto for
+// See Location.path in http://google3/net/proto2/proto/descriptor.proto for
 // explanation of what path vector is.
 void FindAnnotationsOnPath(
     const GeneratedCodeInfo& info, const string& source_file,
@@ -92,7 +87,7 @@ void FindAnnotationsOnPath(
 // Finds the Annotation for a given source file and path (or returns null if it
 // couldn't). If there are several annotations for given path, returns the first
 // one. See Location.path in
-// http://google/protobuf/descriptor.proto for explanation of what path
+// http://google3/net/proto2/proto/descriptor.proto for explanation of what path
 // vector is.
 const GeneratedCodeInfo::Annotation* FindAnnotationOnPath(
     const GeneratedCodeInfo& info, const string& source_file,
@@ -114,6 +109,6 @@ bool AnnotationMatchesSubstring(const string& file_content,
 }  // namespace annotation_test_util
 }  // namespace compiler
 }  // namespace protobuf
-
 }  // namespace google
+
 #endif  // GOOGLE_PROTOBUF_COMPILER_ANNOTATION_TEST_UTIL_H__
